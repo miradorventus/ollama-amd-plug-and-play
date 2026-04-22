@@ -15,8 +15,6 @@ if docker ps --format '{{.Names}}' | grep -q "open-webui"; then
   exit 0
 fi
 
-nmcli con up "Connexion filaire 1" > /dev/null 2>&1
-sudo iptables -P FORWARD ACCEPT
 
 echo "Démarrage d'Ollama (ROCm)..."
 docker start ollama > /dev/null 2>&1 || \
@@ -37,7 +35,6 @@ docker start open-webui > /dev/null 2>&1 || \
     -p 3000:8080 \
     --add-host=host.docker.internal:host-gateway \
     -v open-webui:/app/backend/data \
-    --restart always \
     ghcr.io/open-webui/open-webui:main
 
 sleep 5
@@ -57,7 +54,7 @@ echo "Navigateur détecté : $BROWSER"
 
 case "$BROWSER" in
   firefox)
-    PROFILE_DIR="/home/ia/snap/firefox/common/.mozilla/firefox/s74nrxf4.ollamaui"
+    PROFILE_DIR="/home/ia/snap/firefox/common/.mozilla/firefox/ollamaui-profile"
     mkdir -p "$PROFILE_DIR"
     firefox --no-remote --profile "$PROFILE_DIR" http://localhost:3000 2>/dev/null
     ;;

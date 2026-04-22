@@ -207,9 +207,9 @@ Version=1.0
 Type=Application
 Name=OllamaUI
 Comment=Lancer Ollama et Open WebUI
-Exec=bash -c "$HOME/ollamaui.sh > $HOME/ollamaui.log 2>&1"
+Exec=$HOME/ollamaui.sh
 Icon=utilities-terminal
-Terminal=false
+Terminal=true
 Categories=Application;
 DESK
     gio set "$DESKTOP/OllamaUI.desktop" metadata::trusted true 2>/dev/null
