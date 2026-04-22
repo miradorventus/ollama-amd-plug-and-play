@@ -1,0 +1,152 @@
+=======================================================
+  MEMO COMMANDES UTILES — Ollama + Open WebUI
+  AMD GPU — Ubuntu 24.04
+  / USEFUL COMMANDS — Ollama + Open WebUI
+=======================================================
+
+-------------------------------------------------------
+  DÉMARRAGE / ARRÊT  |  START / STOP
+-------------------------------------------------------
+
+Lancer OllamaUI :
+→ Double-clic sur l'icône OllamaUI sur le bureau
+→ Double-click the OllamaUI icon on the desktop
+
+Arrêter OllamaUI :
+→ Fermer la fenêtre Firefox/Edge/Chrome
+→ Close the Firefox/Edge/Chrome window
+
+-------------------------------------------------------
+  MODÈLES  |  MODELS
+-------------------------------------------------------
+
+Voir les modèles installés :
+  docker exec ollama ollama list
+  / List installed models
+
+Télécharger un modèle :
+  docker exec ollama ollama pull NOM_DU_MODELE
+  / Download a model:
+  docker exec ollama ollama pull MODEL_NAME
+
+Exemples / Examples:
+  docker exec ollama ollama pull gemma3:4b       ← léger / lightweight (~3 GB)
+  docker exec ollama ollama pull gemma3:12b      ← équilibré / balanced (~8 GB)
+  docker exec ollama ollama pull gemma4:26b      ← puissant / powerful (~17 GB)
+  docker exec ollama ollama pull qwen2.5:7b      ← code / coding (~5 GB)
+  docker exec ollama ollama pull mistral:7b      ← général / general (~4 GB)
+
+Supprimer un modèle :
+  docker exec ollama ollama rm NOM_DU_MODELE
+  / Delete a model:
+  docker exec ollama ollama rm MODEL_NAME
+
+Voir quel modèle tourne en ce moment :
+  docker exec ollama ollama ps
+  / See which model is currently running
+
+-------------------------------------------------------
+  VRAM — CHOISIR LE BON MODÈLE
+  VRAM — CHOOSING THE RIGHT MODEL
+-------------------------------------------------------
+
+Ta VRAM disponible / Your available VRAM:
+  docker logs ollama | grep "total_vram"
+
+Guide VRAM / VRAM Guide:
+  4  GB VRAM → modèles :3b  ou :4b
+  8  GB VRAM → modèles :7b  ou :8b
+  12 GB VRAM → modèles :12b ou :13b
+  16 GB VRAM → modèles :26b ou :27b (avec débordement RAM)
+  24 GB VRAM → modèles :70b
+
+Si le modèle est trop lourd, Ollama utilise automatiquement
+la RAM système en complément (plus lent mais fonctionnel).
+/ If the model is too large, Ollama automatically uses
+system RAM as overflow (slower but functional).
+
+-------------------------------------------------------
+  LIBÉRER LA VRAM  |  FREE VRAM
+-------------------------------------------------------
+
+Décharger le modèle actif (libère la VRAM) :
+  docker exec ollama ollama stop NOM_DU_MODELE
+  / Unload the active model (frees VRAM):
+  docker exec ollama ollama stop MODEL_NAME
+
+Le modèle se décharge automatiquement après 5 minutes
+d'inactivité (OLLAMA_KEEP_ALIVE=5m).
+/ The model unloads automatically after 5 minutes
+of inactivity (OLLAMA_KEEP_ALIVE=5m).
+
+-------------------------------------------------------
+  VÉRIFIER QUE LE GPU TRAVAILLE
+  CHECK THAT GPU IS WORKING
+-------------------------------------------------------
+
+Voir l'utilisation GPU en temps réel :
+  watch -n 1 docker exec ollama ollama ps
+  / See real-time GPU usage (Ctrl+C to stop)
+
+Si la colonne PROCESSOR affiche "GPU" → OK ✅
+Si la colonne PROCESSOR affiche "CPU" → problème ⚠️
+/ If PROCESSOR column shows "GPU" → OK ✅
+/ If PROCESSOR column shows "CPU" → issue ⚠️
+
+-------------------------------------------------------
+  MISE À JOUR  |  UPDATE
+-------------------------------------------------------
+
+Mettre à jour Open WebUI :
+  docker pull ghcr.io/open-webui/open-webui:main
+  docker restart open-webui
+  / Update Open WebUI
+
+Mettre à jour Ollama :
+  docker pull ollama/ollama:rocm
+  docker stop ollama && docker rm ollama
+  docker run -d --name ollama \
+    -p 11434:11434 \
+    -v ~/.ollama:/root/.ollama \
+    --device /dev/kfd \
+    --device /dev/dri \
+    -e OLLAMA_KEEP_ALIVE=5m \
+    -e HSA_OVERRIDE_GFX_VERSION=12.0.1 \
+    -e OLLAMA_LLM_LIBRARY=rocm \
+    ollama/ollama:rocm
+  / Update Ollama
+
+-------------------------------------------------------
+  RÉINITIALISER LE MOT DE PASSE OPEN WEBUI
+  RESET OPEN WEBUI PASSWORD
+-------------------------------------------------------
+
+  docker exec open-webui python3 -c "
+  import sqlite3, bcrypt
+  new_pass = bcrypt.hashpw(b'NOUVEAU_MDP', bcrypt.gensalt()).decode()
+  conn = sqlite3.connect('/app/backend/data/webui.db')
+  conn.execute(\"UPDATE auth SET password=? WHERE email='TON_EMAIL'\", (new_pass,))
+  conn.commit()
+  print('OK')
+  "
+  / Replace NOUVEAU_MDP with your new password
+  / Replace TON_EMAIL with your account email
+
+-------------------------------------------------------
+  PROBLÈMES COURANTS  |  COMMON ISSUES
+-------------------------------------------------------
+
+Ollama ne répond pas / Ollama not responding:
+  docker restart ollama
+
+Open WebUI ne répond pas / Open WebUI not responding:
+  docker restart open-webui
+
+Voir les logs d'erreur / See error logs:
+  docker logs ollama
+  docker logs open-webui
+
+Interface web / Web interface:
+  http://localhost:3000
+
+=======================================================
