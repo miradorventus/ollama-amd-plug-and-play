@@ -54,7 +54,7 @@ UPDATE_PID=$!
 
   echo "# Checking Ollama connection..."
   for i in {1..15}; do
-    curl -s http://localhost:11434 > /dev/null 2>&1 && break
+    curl -s http://127.0.0.1:11434 > /dev/null 2>&1 && break
     sleep 1
   done
 
@@ -68,7 +68,7 @@ UPDATE_PID=$!
 
   echo "# Waiting for Open WebUI to be ready..."
   for i in {1..30}; do
-    curl -s http://localhost:3000 > /dev/null 2>&1 && break
+    curl -s http://127.0.0.1:3000 > /dev/null 2>&1 && break
     sleep 1
   done
 
@@ -81,12 +81,12 @@ UPDATE_PID=$!
     --no-cancel --width=450 2>/dev/null
 
 # --- Verify everything is up ---
-if ! curl -s http://localhost:11434 > /dev/null 2>&1; then
+if ! curl -s http://127.0.0.1:11434 > /dev/null 2>&1; then
   error_popup "❌ Ollama is not responding.\nCheck: sudo systemctl status ollama"
   exit 1
 fi
 
-if ! curl -s http://localhost:3000 > /dev/null 2>&1; then
+if ! curl -s http://127.0.0.1:3000 > /dev/null 2>&1; then
   error_popup "❌ Open WebUI is not responding.\nCheck logs for details."
   exit 1
 fi
@@ -127,22 +127,22 @@ case "$BROWSER" in
   firefox)
     PROFILE_DIR="$HOME/snap/firefox/common/.mozilla/firefox/ollamaui-profile"
     mkdir -p "$PROFILE_DIR"
-    firefox --no-remote --profile "$PROFILE_DIR" http://localhost:3000 2>/dev/null
+    firefox --no-remote --profile "$PROFILE_DIR" http://127.0.0.1:3000 2>/dev/null
     ;;
   microsoft-edge)
-    microsoft-edge --new-tab http://localhost:3000 2>/dev/null &
+    microsoft-edge --new-tab http://127.0.0.1:3000 2>/dev/null &
     zenity --info --title="OllamaUI" \
       --text="✅ Open WebUI is ready!\n\nClick STOP to close Ollama and free your GPU." \
       --ok-label="Stop" --width=400 2>/dev/null
     ;;
   google-chrome)
-    google-chrome --new-tab http://localhost:3000 2>/dev/null &
+    google-chrome --new-tab http://127.0.0.1:3000 2>/dev/null &
     zenity --info --title="OllamaUI" \
       --text="✅ Open WebUI is ready!\n\nClick STOP to close Ollama and free your GPU." \
       --ok-label="Stop" --width=400 2>/dev/null
     ;;
   *)
-    xdg-open http://localhost:3000
+    xdg-open http://127.0.0.1:3000
     zenity --info --title="OllamaUI" \
       --text="✅ Open WebUI is ready!\n\nClick STOP to close Ollama and free your GPU." \
       --ok-label="Stop" --width=400 2>/dev/null
