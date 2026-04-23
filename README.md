@@ -2,6 +2,16 @@
 
 # 🚀 Ollama + Open WebUI — AMD Plug & Play
 
+## 🎉 What's new — v1.1.2
+
+- 🔐 **Smart authentication** — password prompt appears BEFORE anything else via native pkexec dialog
+- 🔑 **NOPASSWD for stop only** — no password needed when closing the app
+- 🔄 **Update check BEFORE launch** — if a new version is available, you're prompted immediately with auto-restart
+- 👥 **Already-running detection** — clicking OllamaUI while running shows "New tab" or "Reset services" with confirmation
+- ⚡ **Startup loading window** — visual feedback during initialization
+- 🌐 **Fixed DNS timeout** — now uses `127.0.0.1` instead of `localhost`
+
+
 > **No terminal gymnastics. No dependency hell. Just vibes and working AI.**
 
 Tired of spending your Saturday configuring PyTorch, Docker, ROCm, systemd and 47 browser tabs of Stack Overflow?
