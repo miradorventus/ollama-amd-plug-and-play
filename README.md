@@ -1,3 +1,5 @@
+<p align="center"><img src="icon.png" width="200"/></p>
+
 # 🚀 Ollama + Open WebUI — AMD Plug & Play
 
 > **No terminal gymnastics. No dependency hell. Just vibes and working AI.**
