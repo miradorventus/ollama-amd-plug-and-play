@@ -30,6 +30,18 @@ error_popup() {
 }
 
 
+# --- Sudo auth first ---
+if ! sudo -n true 2>/dev/null; then
+  PASSWORD=$(zenity --password --title="OllamaUI" \
+    --text="Enter your password to start Ollama:" --width=400 2>/dev/null)
+  [ $? -ne 0 ] && exit 0
+  echo "$PASSWORD" | sudo -S -v 2>/dev/null || {
+    zenity --error --title="Error" --text="Wrong password." --width=300 2>/dev/null
+    exit 1
+  }
+fi
+
+
 # --- Clean any previous session ---
 docker stop open-webui >/dev/null 2>&1
 sudo systemctl stop ollama >/dev/null 2>&1
