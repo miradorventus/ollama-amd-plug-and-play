@@ -30,16 +30,6 @@ error_popup() {
 }
 
 
-# --- Sudo auth first ---
-if ! sudo -n true 2>/dev/null; then
-  PASSWORD=$(zenity --password --title="OllamaUI" \
-    --text="Enter your password to start Ollama:" --width=400 2>/dev/null)
-  [ $? -ne 0 ] && exit 0
-  echo "$PASSWORD" | sudo -S -v 2>/dev/null || {
-    zenity --error --title="Error" --text="Wrong password." --width=300 2>/dev/null
-    exit 1
-  }
-fi
 
 
 # --- Clean any previous session ---
@@ -57,11 +47,10 @@ UPDATE_INFO_FILE=$(mktemp)
 ) &
 UPDATE_PID=$!
 
-  sudo -v 2>/dev/null
 # --- LOADING WINDOW — shows progress while everything starts ---
 (
   echo "# Starting Ollama service..."
-  sudo systemctl start ollama 2>/dev/null
+  pkexec systemctl start ollama 2>/dev/null
   sleep 2
 
   echo "# Checking Ollama connection..."
