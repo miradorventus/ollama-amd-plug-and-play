@@ -1,20 +1,23 @@
 # 🚀 Ollama + Open WebUI — AMD Plug & Play
 
-> **One click. That's it.**
+> **No terminal gymnastics. No dependency hell. Just vibes and working AI.**
 
-A dead-simple installer for **Ollama + Open WebUI** on Ubuntu with AMD GPU acceleration.
-No terminal wizardry needed — just double-click and go.
+Tired of spending your Saturday configuring PyTorch, Docker, ROCm, systemd and 47 browser tabs of Stack Overflow?
+Yeah, same. That's why this exists.
+
+**One command. One click. Working AI on your AMD GPU.**
 
 ---
 
 ## ✨ What you get
 
-- 🖥️ **Desktop shortcut** to launch everything with one click
-- 🤖 **Ollama** — run AI models locally on your AMD GPU
-- 🌐 **Open WebUI** — a beautiful chat interface (like ChatGPT, but local!)
-- 🔒 **100% offline** — your data never leaves your machine
-- ⚡ **Auto stop** — closes everything when you close the browser
-- 💾 **VRAM friendly** — models unload automatically after 5 minutes idle
+- 🖥️ **Desktop shortcut** — double-click, that's the whole workflow
+- 🤖 **Ollama** — native install (not Docker!) with full AMD ROCm acceleration
+- 🌐 **Open WebUI** — the ChatGPT-looking interface, but running on your machine
+- 🔒 **100% offline** — your data doesn't leave your GPU
+- ⚡ **Smart on-demand** — services start when you click, stop when you close
+- 💾 **VRAM friendly** — models auto-unload after 5 minutes of silence
+- 🔋 **Power efficient** — no services running at boot, no wasted wattage
 
 ---
 
@@ -26,15 +29,15 @@ No terminal wizardry needed — just double-click and go.
 | GPU | AMD with ROCm support (RX 6000 series and newer) |
 | RAM | 16 GB minimum |
 | Storage | 20 GB free minimum |
-| Internet | Required for installation only |
+| Internet | For the initial setup only |
 
-> ⚠️ **RDNA4 users (RX 9070 / 9070 XT):** `HSA_OVERRIDE_GFX_VERSION=12.0.1` is already pre-configured in the scripts.
+> ⚠️ **RDNA4 gang (RX 9070 / 9070 XT):** `HSA_OVERRIDE_GFX_VERSION=12.0.1` is already wired up. You're welcome.
 
 ---
 
 ## 📦 Installation
 
-**Copy this 👇 — Paste into a terminal — Press Enter — Enjoy! 🎉**
+**Copy this 👇 — Paste into terminal — Grab a coffee ☕**
 
 ```bash
 git clone https://github.com/miradorventus/ollama-amd-plug-and-play.git
@@ -43,14 +46,17 @@ chmod +x install_ollama.sh
 ./install_ollama.sh
 ```
 
-The graphical installer will handle everything:
+The installer handles everything — GUI all the way:
 
-1. ✅ Ask for your password once (via a popup — no terminal needed after this)
-2. ✅ Check and install Docker if needed
-3. ✅ Detect your AMD GPU and ROCm drivers
-4. ✅ Download Ollama and Open WebUI
-5. ✅ Create a desktop shortcut **OllamaUI**
-6. ✅ Launch everything automatically when done
+1. ✅ Asks for your password once (in a popup, not a terminal prompt)
+2. ✅ Detects what's missing (Docker, curl, ROCm) and offers to install it
+3. ✅ Pulls Ollama from the official source (native, not Docker)
+4. ✅ Pulls Open WebUI (Docker, because why reinvent the wheel)
+5. ✅ Configures Ollama for your AMD GPU automatically
+6. ✅ Disables auto-start at boot (power efficiency ftw)
+7. ✅ Creates an **OllamaUI** desktop shortcut
+
+Live log window shows what's happening. No more `tail -f` in a hidden terminal.
 
 ---
 
@@ -58,62 +64,69 @@ The graphical installer will handle everything:
 
 **Start:** Double-click **OllamaUI** on your desktop
 
-**Stop:** Close the browser window — everything stops automatically
+**Stop:** Close the browser window — services shut down, GPU freed
 
 **Web interface:** `http://localhost:3000`
+
+That's it. Really.
 
 ---
 
 ## 🗑️ Uninstall
 
-**Copy this 👇 — Paste into a terminal — Done!**
+**Copy this 👇 — Paste — Done.**
 
 ```bash
 cd ollama-amd-plug-and-play
 ./uninstall_ollama.sh
 ```
 
-- Removes Docker containers and images
-- Removes scripts and desktop shortcuts
-- **Keeps your downloaded models** in `~/.ollama`
+- Removes Ollama service and binaries
+- Removes Open WebUI Docker container and image
+- Removes scripts and desktop shortcut
+- **Keeps your models** in `~/.ollama` (delete manually if you want the space back)
 
 ---
 
 ## 🤖 Download a Model
 
-Open a terminal and run:
-
 ```bash
 docker exec ollama ollama pull MODEL_NAME
+```
+
+Wait, that's wrong — Ollama is native now. Use this instead:
+
+```bash
+ollama pull MODEL_NAME
 ```
 
 **Examples:**
 
 ```bash
-# Small and fast — good for low VRAM (4 GB+)
-docker exec ollama ollama pull gemma3:4b
+# Small & fast — low VRAM gang
+ollama pull gemma3:4b
 
-# Balanced — good all-rounder (8 GB+ VRAM)
-docker exec ollama ollama pull gemma3:12b
+# Balanced — the Goldilocks zone
+ollama pull gemma3:12b
 
-# Best quality — needs more VRAM (16 GB+)
-docker exec ollama ollama pull gemma4:26b
+# Large — you got the VRAM, flex it
+ollama pull gemma4:26b
 
-# Great for coding (5 GB+ VRAM)
-docker exec ollama ollama pull qwen2.5:7b
+# Code wizard mode
+ollama pull qwen2.5:7b
 
-# General purpose, fast (4 GB+ VRAM)
-docker exec ollama ollama pull mistral:7b
+# European languages, surprisingly good
+ollama pull mistral:7b
 ```
 
-**List your installed models:**
+**List your models:**
 ```bash
-docker exec ollama ollama list
+ollama list
 ```
 
-**Delete a model to free space:**
+**Delete a model:**
 ```bash
-docker exec ollama ollama rm gemma3:4b
+ollama rm MODEL_NAME
 ```
 
 ### VRAM Guide
@@ -124,29 +137,30 @@ docker exec ollama ollama rm gemma3:4b
 | 8 GB | `gemma3:12b`, `llama3:8b` |
 | 12 GB | `gemma3:12b`, `mistral:12b` |
 | 16 GB | `gemma4:26b`, `llama3:70b-q4` |
-| 24 GB+ | Any model |
+| 24 GB+ | Go nuts |
 
-> 💡 If a model is too large for your VRAM, Ollama automatically uses system RAM as overflow — slower, but it still works!
+> 💡 Model too big for your VRAM? Ollama will spill into RAM automatically. Slower, but it runs. 
 
 ---
 
 ## 🔧 Useful Commands
 
-**Check GPU is being used (run during a generation):**
+**Check GPU is actually working (run during a generation):**
 ```bash
-watch -n 1 docker exec ollama ollama ps
-# Look for "GPU" in the PROCESSOR column ✅
+watch -n 1 ollama ps
+# "GPU" in the PROCESSOR column = you're good
+# "CPU" in the PROCESSOR column = something's wrong, check ~/install_ollama.log
 ```
 
-**Restart if something goes wrong:**
+**Restart when things feel weird:**
 ```bash
-docker restart ollama
+sudo systemctl restart ollama
 docker restart open-webui
 ```
 
-**View error logs:**
+**View logs:**
 ```bash
-docker logs ollama
+journalctl -u ollama -n 50
 docker logs open-webui
 ```
 
@@ -156,16 +170,13 @@ See **MEMO.txt** for the full command reference.
 
 ## 💬 Contributing
 
-All feedback is welcome — bugs, suggestions, improvements, anything!
+Found a bug? Want a feature? Something broke on your setup?
+**Pull requests and issues welcome** — this is a community thing, not a one-person gate-keeping project.
 
-→ Open an **Issue**
-→ Submit a **Pull Request**
-→ Share your experience
-
-This project is made by a fellow AMD Linux user, for AMD Linux users. 🤝
+Made by a fellow AMD Linux user who got tired of the setup dance. For everyone else who got tired too. 🤝
 
 ---
 
 ## 📄 License
 
-MIT — Free to use, modify and share.
+MIT — use it, fork it, break it, make it better.
