@@ -1,10 +1,10 @@
 #!/bin/bash
 # ============================================================
 #  ollamaui.sh — Launcher Ollama + Open WebUI (on-demand)
-#  Version: 1.1.0
+#  Version: 1.2.0
 # ============================================================
 
-VERSION="1.2.0"
+VERSION="1.1.2"
 REPO_URL="https://github.com/miradorventus/ollama-amd-plug-and-play"
 RAW_URL="https://raw.githubusercontent.com/miradorventus/ollama-amd-plug-and-play/main"
 
@@ -29,30 +29,62 @@ error_popup() {
     --filename=/home/ia/ollamaui.log --width=700 --height=400 2>/dev/null
 }
 
+# ============================================================
+# STEP 1 — Check for updates FIRST (silent if none available)
+# ============================================================
+LATEST=$(curl -fsSL --max-time 3 "$RAW_URL/ollamaui.sh" 2>/dev/null | grep -oP '^VERSION="\K[^"]+' | head -1)
 
-
-
-# --- Clean any previous session ---
-docker stop open-webui >/dev/null 2>&1
-sudo systemctl stop ollama >/dev/null 2>&1
-sleep 1
-
-# --- Check for updates in background (silent) ---
-UPDATE_INFO_FILE=$(mktemp)
-(
-  LATEST=$(curl -fsSL --max-time 3 "$RAW_URL/ollamaui.sh" 2>/dev/null | grep -oP '^VERSION="\K[^"]+' | head -1)
-  if [ -n "$LATEST" ] && [ "$LATEST" != "$VERSION" ]; then
-    echo "$LATEST" > "$UPDATE_INFO_FILE"
+if [ -n "$LATEST" ] && [ "$LATEST" != "$VERSION" ]; then
+  zenity --question \
+    --title="OllamaUI — Update available 🎉" \
+    --text="A new version is available!\n\nCurrent: $VERSION\nLatest:  $LATEST\n\nUpdate now?" \
+    --width=400 2>/dev/null
+  if [ $? -eq 0 ]; then
+    REPO_DIR="$HOME/ollama-amd-plug-and-play"
+    if [ -d "$REPO_DIR/.git" ]; then
+      (
+        echo "20"; echo "# Pulling updates..."
+        cd "$REPO_DIR" && git pull > /dev/null 2>&1
+        echo "60"; echo "# Copying scripts..."
+        cp ollamaui.sh stopia.sh detect_browser.sh "$HOME/" 2>/dev/null
+        chmod +x "$HOME/ollamaui.sh" "$HOME/stopia.sh" "$HOME/detect_browser.sh"
+        echo "100"
+      ) | zenity --progress \
+          --title="OllamaUI — Updating" \
+          --text="Updating to $LATEST..." \
+          --percentage=0 --auto-close --width=400 2>/dev/null
+      
+      zenity --info --title="✅ Updated" \
+        --text="Updated to version $LATEST!\nRelaunching..." \
+        --width=400 --timeout=2 2>/dev/null
+      
+      # Auto-restart with new version
+      exec "$HOME/ollamaui.sh"
+    else
+      zenity --warning --title="Manual update needed" \
+        --text="Please update manually:\ncd ~/ollama-amd-plug-and-play && git pull" \
+        --width=400 2>/dev/null
+    fi
   fi
-) &
-UPDATE_PID=$!
+fi
 
-# --- LOADING WINDOW — shows progress while everything starts ---
+# ============================================================
+# STEP 2 — Request sudo auth FIRST (before anything else)
+# ============================================================
+# pkexec will show the system password popup. If user cancels, we exit.
+echo "Requesting authentication..."
+pkexec systemctl start ollama
+START_STATUS=$?
+
+if [ $START_STATUS -ne 0 ]; then
+  # User cancelled or wrong password
+  exit 0
+fi
+
+# ============================================================
+# STEP 3 — Loading window (AFTER sudo is OK, service is starting)
+# ============================================================
 (
-  echo "# Starting Ollama service..."
-  pkexec systemctl start ollama 2>/dev/null
-  sleep 2
-
   echo "# Checking Ollama connection..."
   for i in {1..15}; do
     curl -s http://127.0.0.1:11434 > /dev/null 2>&1 && break
@@ -60,6 +92,7 @@ UPDATE_PID=$!
   done
 
   echo "# Starting Open WebUI..."
+  docker stop open-webui >/dev/null 2>&1
   docker start open-webui > /dev/null 2>&1 || \
     docker run -d --name open-webui \
       -p 3000:8080 \
@@ -81,7 +114,9 @@ UPDATE_PID=$!
     --pulsate --auto-close \
     --no-cancel --width=450 2>/dev/null
 
-# --- Verify everything is up ---
+# ============================================================
+# STEP 4 — Verify everything is up
+# ============================================================
 if ! curl -s http://127.0.0.1:11434 > /dev/null 2>&1; then
   error_popup "❌ Ollama is not responding.\nCheck: sudo systemctl status ollama"
   exit 1
@@ -92,36 +127,9 @@ if ! curl -s http://127.0.0.1:3000 > /dev/null 2>&1; then
   exit 1
 fi
 
-# --- Show update popup if available ---
-wait $UPDATE_PID 2>/dev/null
-if [ -s "$UPDATE_INFO_FILE" ]; then
-  LATEST=$(cat "$UPDATE_INFO_FILE")
-  rm -f "$UPDATE_INFO_FILE"
-  (
-    zenity --question \
-      --title="OllamaUI — Update available 🎉" \
-      --text="A new version is available!\n\nCurrent: $VERSION\nLatest:  $LATEST\n\nUpdate now? (will apply on next launch)" \
-      --width=400 2>/dev/null
-    if [ $? -eq 0 ]; then
-      REPO_DIR="$HOME/ollama-amd-plug-and-play"
-      if [ -d "$REPO_DIR/.git" ]; then
-        cd "$REPO_DIR" && git pull > /dev/null 2>&1
-        cp ollamaui.sh stopia.sh detect_browser.sh "$HOME/" 2>/dev/null
-        chmod +x "$HOME/ollamaui.sh" "$HOME/stopia.sh" "$HOME/detect_browser.sh"
-        zenity --info --title="Updated" \
-          --text="✅ Updated to $LATEST!\nRestart OllamaUI to apply." \
-          --width=400 2>/dev/null
-      else
-        zenity --warning --title="Manual update needed" \
-          --text="Please update manually:\ncd ~/ollama-amd-plug-and-play && git pull" \
-          --width=400 2>/dev/null
-      fi
-    fi
-  ) &
-fi
-rm -f "$UPDATE_INFO_FILE"
-
-# --- Open browser ---
+# ============================================================
+# STEP 5 — Open browser
+# ============================================================
 BROWSER=$(/home/ia/detect_browser.sh | cut -d'|' -f1)
 
 case "$BROWSER" in
@@ -150,5 +158,7 @@ case "$BROWSER" in
     ;;
 esac
 
-# --- Cleanup on exit ---
+# ============================================================
+# STEP 6 — Cleanup on exit
+# ============================================================
 /home/ia/stopia.sh
