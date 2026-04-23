@@ -115,6 +115,7 @@ install_ollama_native() {
 Environment="HSA_OVERRIDE_GFX_VERSION=12.0.1"
 Environment="OLLAMA_LLM_LIBRARY=rocm"
 Environment="OLLAMA_KEEP_ALIVE=5m"
+Environment="OLLAMA_HOST=0.0.0.0"
 OVERRIDE
 
   log "=== DISABLING Ollama auto-start at boot (on-demand policy) ==="
