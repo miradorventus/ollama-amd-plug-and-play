@@ -1,74 +1,86 @@
 #!/bin/bash
-export HSA_OVERRIDE_GFX_VERSION=12.0.1
-export OLLAMA_LLM_LIBRARY=rocm
-export LD_LIBRARY_PATH=/usr/local/lib/ollama/rocm:$LD_LIBRARY_PATH
+# ============================================================
+#  ollamaui.sh — Launcher Ollama + Open WebUI (on-demand)
+# ============================================================
 
-error_popup() {
-  zenity --error --title="OllamaUI — Erreur" --text="$1" --extra-button="Voir les logs" --width=400 2>/dev/null
-  if [ $? -eq 1 ]; then
-    zenity --text-info --title="Logs OllamaUI" --filename=/home/ia/ollamaui.log --width=700 --height=400 2>/dev/null
-  fi
-}
-
-if docker ps --format '{{.Names}}' | grep -q "open-webui"; then
-  xdg-open http://localhost:3000
-  exit 0
+# --- Sudo auth first ---
+if ! sudo -n true 2>/dev/null; then
+  PASSWORD=$(zenity --password --title="OllamaUI" \
+    --text="Enter your password to start Ollama:" --width=400 2>/dev/null)
+  [ $? -ne 0 ] && exit 0
+  echo "$PASSWORD" | sudo -S -v 2>/dev/null || {
+    zenity --error --title="Error" --text="Wrong password." --width=300 2>/dev/null
+    exit 1
+  }
 fi
 
+# --- Clean any previous session ---
+docker stop open-webui >/dev/null 2>&1
+sudo systemctl stop ollama >/dev/null 2>&1
+sleep 1
 
-echo "Démarrage d'Ollama (ROCm)..."
-docker start ollama > /dev/null 2>&1 || \
-  docker run -d --name ollama \
-    -p 11434:11434 \
-    -v /home/ia/.ollama:/root/.ollama \
-    --device /dev/kfd \
-    --device /dev/dri \
-    -e OLLAMA_KEEP_ALIVE=5m \
-    -e HSA_OVERRIDE_GFX_VERSION=12.0.1 \
-    -e OLLAMA_LLM_LIBRARY=rocm \
-    ollama/ollama:rocm
 
-echo "Démarrage d'Open WebUI..."
+error_popup() {
+  zenity --error --title="OllamaUI — Error" --text="$1" \
+    --extra-button="View log" --width=400 2>/dev/null
+  [ $? -eq 1 ] && zenity --text-info --title="Logs" \
+    --filename=/home/ia/ollamaui.log --width=700 --height=400 2>/dev/null
+}
+
+# --- Start Ollama service (on-demand) ---
+if ! systemctl is-active --quiet ollama; then
+  echo "Starting Ollama service..."
+  sudo systemctl start ollama 2>/dev/null
+  sleep 3
+fi
+
+if ! curl -s http://localhost:11434 > /dev/null 2>&1; then
+  error_popup "❌ Ollama is not responding.\nCheck: sudo systemctl status ollama"
+  exit 1
+fi
+
+# --- Start Open WebUI (on-demand) ---
+echo "Starting Open WebUI..."
 docker start open-webui > /dev/null 2>&1 || \
-  docker run -d \
-    --name open-webui \
+  docker run -d --name open-webui \
     -p 3000:8080 \
     --add-host=host.docker.internal:host-gateway \
     -v open-webui:/app/backend/data \
     ghcr.io/open-webui/open-webui:main
 
-sleep 5
-
-if ! curl -s http://localhost:11434 > /dev/null 2>&1; then
-  error_popup "❌ Ollama ne répond pas.\nVérifiez que le GPU AMD est détecté et que Docker fonctionne."
-  exit 1
-fi
+for i in {1..30}; do curl -s http://localhost:3000 > /dev/null && break; sleep 1; done
 
 if ! curl -s http://localhost:3000 > /dev/null 2>&1; then
-  error_popup "❌ Open WebUI ne répond pas.\nVérifiez les logs pour plus de détails."
+  error_popup "❌ Open WebUI is not responding.\nCheck logs for details."
   exit 1
 fi
 
+# --- Open browser in a new tab (reuses existing window if possible) ---
 BROWSER=$(/home/ia/detect_browser.sh | cut -d'|' -f1)
-echo "Navigateur détecté : $BROWSER"
+echo "Browser detected: $BROWSER"
 
 case "$BROWSER" in
   firefox)
-    PROFILE_DIR="/home/ia/snap/firefox/common/.mozilla/firefox/ollamaui-profile"
+    # Use dedicated profile — waits for window close
+    PROFILE_DIR="$HOME/snap/firefox/common/.mozilla/firefox/ollamaui-profile"
     mkdir -p "$PROFILE_DIR"
     firefox --no-remote --profile "$PROFILE_DIR" http://localhost:3000 2>/dev/null
     ;;
   microsoft-edge)
-    microsoft-edge --profile-directory="OllamaUI" http://localhost:3000 2>/dev/null
+    # Open new tab in existing window, then wait
+    MSG="✅ Open WebUI is ready in your browser!\n\nClick STOP below to close Ollama and free your GPU."
+    zenity --info --title="OllamaUI" --text="$MSG" --ok-label="Stop" --width=400 2>/dev/null
     ;;
   google-chrome)
-    google-chrome --profile-directory="OllamaUI" http://localhost:3000 2>/dev/null
+    MSG="✅ Open WebUI is ready in your browser!\n\nClick STOP below to close Ollama and free your GPU."
+    zenity --info --title="OllamaUI" --text="$MSG" --ok-label="Stop" --width=400 2>/dev/null
     ;;
   *)
     xdg-open http://localhost:3000
-    sleep infinity
+    MSG="✅ Open WebUI is ready in your browser!\n\nClick STOP below to close Ollama and free your GPU."
+    zenity --info --title="OllamaUI" --text="$MSG" --ok-label="Stop" --width=400 2>/dev/null
     ;;
 esac
 
-echo "Navigateur fermé, arrêt des services..."
+echo "Stopping services..."
 /home/ia/stopia.sh

@@ -1,14 +1,18 @@
 #!/bin/bash
-echo "--- Arrêt des services IA ---"
+# ============================================================
+#  stopia.sh — Stop Ollama + Open WebUI (on-demand policy)
+# ============================================================
 
-echo "Arrêt d'Open WebUI..."
+echo "--- Stopping AI services ---"
+
+echo "Stopping Open WebUI..."
 docker stop open-webui > /dev/null 2>&1
-docker update --restart=no open-webui > /dev/null 2>&1
 
-echo "Arrêt d'Ollama..."
-docker stop ollama > /dev/null 2>&1
+echo "Stopping Ollama service..."
+sudo systemctl stop ollama > /dev/null 2>&1
 
-echo "--- Ressources libérées ---"
+echo "--- GPU freed ---"
+
 zenity --notification \
-  --text="✅ OllamaUI arrêté — GPU libéré" \
+  --text="✅ OllamaUI stopped — GPU freed" \
   --timeout=2 2>/dev/null &
