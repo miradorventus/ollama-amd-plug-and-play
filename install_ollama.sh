@@ -163,7 +163,7 @@ Type=Application
 Name=OllamaUI
 Comment=Launch Ollama + Open WebUI (on-demand)
 Exec=$HOME/ollamaui.sh
-Icon=utilities-terminal
+Icon=$SCRIPT_DIR/icon.png
 Terminal=false
 Categories=Application;
 DESK
