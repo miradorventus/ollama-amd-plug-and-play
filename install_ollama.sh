@@ -2,10 +2,10 @@
 # ============================================================
 #  install_ollama.sh
 #  Ollama (native) + Open WebUI (Docker) — AMD ROCm
-#  Version: 1.2.4
+#  Version: 1.3.0
 # ============================================================
 
-VERSION="1.2.4"
+VERSION="1.3.0"
 LOG_FILE="$HOME/install_ollama.log"
 STATUS_FILE=$(mktemp)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,10 +22,12 @@ fi
 if [ "$1" = "--resume" ] || [ -f "$RESUME_MARKER" ]; then
   rm -f "$AUTOSTART_FILE"
   rm -f "$RESUME_MARKER"
+  # Decorative info popup — 3s auto-close, non-blocking (&).
+  # No SKIP_ROCM flag: the script is idempotent, check_requirements
+  # will see ROCm installed and skip it naturally.
   zenity --info --title="Ollama Setup — Resuming" \
     --text="✅ Reboot complete!\nContinuing installation..." \
-    --width=400 --timeout=3 2>/dev/null
-  SKIP_ROCM=1
+    --width=400 --timeout=3 2>/dev/null &
 fi
 
 # ============================================================
@@ -78,10 +80,7 @@ cat > "$LOG_FILE" << EOF
 ============================================
 EOF
 
-if [ -z "$SKIP_ROCM" ]; then
-  zenity --info --title="Ollama Setup" --text="$MSG_WELCOME" --width=500 2>/dev/null
-  [ $? -ne 0 ] && exit 0
-fi
+zenity --info --title="Ollama Setup" --text="$MSG_WELCOME" --width=500 --timeout=3 2>/dev/null &
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
 
@@ -91,7 +90,7 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
 log "=== Checking requirements ==="
 MISSING=""
 
-if [ -z "$SKIP_ROCM" ] && ! dpkg -l 2>/dev/null | grep -q "^ii  rocm-hip-runtime"; then
+if ! dpkg -l 2>/dev/null | grep -q "^ii  rocm-hip-runtime"; then
   MISSING="$MISSING rocm"
 fi
 command -v docker &>/dev/null || MISSING="$MISSING docker"
