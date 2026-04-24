@@ -1,12 +1,11 @@
 #!/bin/bash
 # ============================================================
 #  install_ollama.sh
-#  Ollama (native, on-demand) + Open WebUI (Docker, on-demand)
-#  AMD ROCm — Ubuntu 24.04
-#  Version: 1.2.0
+#  Ollama (native) + Open WebUI (Docker) — AMD ROCm
+#  Version: 1.2.1
 # ============================================================
 
-VERSION="1.2.0"
+VERSION="1.2.1"
 LOG_FILE="$HOME/install_ollama.log"
 STATUS_FILE=$(mktemp)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,15 +20,11 @@ fi
 # POST-REBOOT RESUME
 # ============================================================
 if [ "$1" = "--resume" ] || [ -f "$RESUME_MARKER" ]; then
-  # Remove autostart
   rm -f "$AUTOSTART_FILE"
   rm -f "$RESUME_MARKER"
-  
   zenity --info --title="Ollama Setup — Resuming" \
-    --text="✅ Reboot complete!\n\nContinuing installation of Ollama + Open WebUI..." \
+    --text="✅ Reboot complete!\nContinuing installation..." \
     --width=400 --timeout=3 2>/dev/null
-  
-  # Skip ROCm install since it's already done
   SKIP_ROCM=1
 fi
 
@@ -49,19 +44,14 @@ if ! sudo -n true 2>/dev/null; then
 fi
 
 MSG_WELCOME="Welcome to the Ollama + Open WebUI installer\n\nThis will install:\n• Ollama (native, via official script)\n• Open WebUI (Docker container)\n\nPOLICY: On-demand only\n• Services start when you launch OllamaUI\n• Services stop when you close the browser\n• Nothing runs at boot — saves power!\n\nRequirements:\n• Ubuntu 24.04\n• AMD GPU with ROCm support\n• Docker (will be installed if missing)\n• ~20 GB free disk space\n\nLog: $LOG_FILE"
-MSG_SUCCESS="✅ Ollama + Open WebUI installed successfully!\n\nDesktop shortcut 'OllamaUI' created.\nLaunch it from your desktop when you're ready."
-MSG_FAIL="❌ Installation failed.\n\nSee log: $LOG_FILE"
 
 cat > "$LOG_FILE" << EOF
 ============================================
  Ollama + Open WebUI — Installation log
  $(date)
- System : $(uname -a)
- Ubuntu : $(lsb_release -d 2>/dev/null | cut -f2)
 ============================================
 EOF
 
-# Skip welcome on resume
 if [ -z "$SKIP_ROCM" ]; then
   zenity --info --title="Ollama Setup" --text="$MSG_WELCOME" --width=500 2>/dev/null
   [ $? -ne 0 ] && exit 0
@@ -70,58 +60,39 @@ fi
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
 
 # ============================================================
-# PROGRESS WINDOW — shows last 5 lines of log in one-line format
+# STEP 1 — Requirements check (INTERACTIVE, BEFORE progress window)
 # ============================================================
-show_progress() {
-  (
-  while kill -0 $MAIN_PID 2>/dev/null; do
-    # Get last non-empty line from log
-    LAST_LINE=$(tail -n 1 "$LOG_FILE" 2>/dev/null | sed 's/^\[[0-9: -]*\] //')
-    [ -n "$LAST_LINE" ] && echo "# $LAST_LINE"
-    sleep 1
-  done
-  echo "100"
-  ) | zenity --progress \
-      --title="Ollama Setup — Installing..." \
-      --text="Starting installation..." \
-      --pulsate --auto-close \
-      --cancel-label="Abort" \
-      --width=600 2>/dev/null
-  
-  # If zenity was cancelled (user clicked Abort)
-  if [ $? -ne 0 ] && kill -0 $MAIN_PID 2>/dev/null; then
-    kill $MAIN_PID 2>/dev/null
-    echo "ABORTED" > "$STATUS_FILE"
+log "=== Checking requirements ==="
+MISSING=""
+
+if [ -z "$SKIP_ROCM" ] && ! dpkg -l 2>/dev/null | grep -q "^ii  rocm-hip-runtime"; then
+  MISSING="$MISSING rocm"
+fi
+command -v docker &>/dev/null || MISSING="$MISSING docker"
+command -v curl &>/dev/null || MISSING="$MISSING curl"
+
+if [ -n "$MISSING" ]; then
+  zenity --question --modal --title="Missing requirements" \
+    --text="Missing components:\n$MISSING\n\nInstall them automatically via official repositories?" \
+    --width=450 2>/dev/null
+  if [ $? -ne 0 ]; then
+    zenity --warning --title="Installation cancelled" \
+      --text="⚠️ Installation cancelled by user." --width=350 2>/dev/null
+    exit 0
   fi
-}
+  INSTALL_DEPS=1
+else
+  INSTALL_DEPS=0
+fi
 
-check_requirements() {
-  log "=== Checking requirements ==="
-  local MISSING=""
-  local REASONS=""
-
-  if ! grep -q "24.04" /etc/os-release; then
-    REASONS="$REASONS\n• Ubuntu 24.04 required"
-  fi
-
-  [ ! -e /dev/kfd ] && [ -z "$SKIP_ROCM" ] && MISSING="$MISSING rocm"
-  command -v docker &>/dev/null || MISSING="$MISSING docker"
-  command -v curl &>/dev/null || MISSING="$MISSING curl"
-
-  if [ -n "$REASONS" ]; then
-    zenity --question --title="⚠️ Incompatibility detected" \
-      --text="Issues detected:$REASONS\n\nInstallation may not work.\nCancel?" \
-      --ok-label="Cancel" --cancel-label="Continue anyway" --width=500 2>/dev/null
-    [ $? -eq 0 ] && exit 0
-  fi
-
-  if [ -n "$MISSING" ]; then
-    zenity --question --title="Missing requirements" \
-      --text="Missing components:\n$MISSING\n\nInstall them automatically?" \
-      --width=450 2>/dev/null
-    [ $? -ne 0 ] && exit 0
-
+# ============================================================
+# STEP 2 — Install dependencies (with progress window)
+# ============================================================
+install_deps() {
+  if [ "$INSTALL_DEPS" = "1" ]; then
+    log "Installing missing dependencies: $MISSING"
     sudo apt update >> "$LOG_FILE" 2>&1
+    
     for dep in $MISSING; do
       case $dep in
         docker)
@@ -143,27 +114,6 @@ check_requirements() {
           ;;
       esac
     done
-
-    if [ "$(cat "$STATUS_FILE" 2>/dev/null)" = "REBOOT" ]; then
-      # Setup post-reboot resume
-      log "Setting up post-reboot resume..."
-      touch "$RESUME_MARKER"
-      mkdir -p "$HOME/.config/autostart"
-      cat > "$AUTOSTART_FILE" << AUTOEOF
-[Desktop Entry]
-Type=Application
-Name=Ollama Install Resume
-Exec=bash -c "$SCRIPT_DIR/install_ollama.sh --resume"
-X-GNOME-Autostart-enabled=true
-AUTOEOF
-      chmod +x "$AUTOSTART_FILE"
-      
-      zenity --info --title="Reboot required" \
-        --text="⚠️ ROCm installed. A reboot is required.\n\nAfter the reboot, the installation will continue automatically.\n\nThe system will reboot in 5 seconds..." \
-        --width=400 --timeout=5 2>/dev/null
-      sudo reboot
-      exit 0
-    fi
   fi
 }
 
@@ -185,15 +135,14 @@ Environment="OLLAMA_KEEP_ALIVE=5m"
 Environment="OLLAMA_HOST=0.0.0.0"
 OVERRIDE
 
-  log "Setting up NOPASSWD for stop only (smooth UX)..."
+  log "Setting up NOPASSWD for stop only..."
   echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop ollama, /usr/bin/systemctl stop ollama.service" | sudo tee /etc/sudoers.d/ollama-nopasswd-stop > /dev/null
   sudo chmod 440 /etc/sudoers.d/ollama-nopasswd-stop
 
-  log "Disabling Ollama auto-start at boot (on-demand policy)..."
+  log "Disabling Ollama auto-start at boot..."
   sudo systemctl daemon-reload
   sudo systemctl disable ollama >> "$LOG_FILE" 2>&1
   sudo systemctl stop ollama >> "$LOG_FILE" 2>&1
-  log "Ollama will start only when OllamaUI is launched"
 }
 
 install_openwebui() {
@@ -246,8 +195,17 @@ DESK
   log "Desktop shortcut created at $DESKTOP/OllamaUI.desktop"
 }
 
-main_install() {
-  check_requirements
+# ============================================================
+# STEP 3 — Run installation (background) + progress window
+# ============================================================
+run_install() {
+  install_deps
+  
+  # Check if reboot needed
+  if [ "$(cat "$STATUS_FILE" 2>/dev/null)" = "REBOOT" ]; then
+    return 0  # Will handle reboot AFTER progress window closes
+  fi
+  
   install_ollama_native || return 1
   install_openwebui || return 1
   install_scripts
@@ -255,30 +213,73 @@ main_install() {
   echo "SUCCESS" > "$STATUS_FILE"
 }
 
-# ============================================================
-# RUN
-# ============================================================
-main_install &
+run_install &
 MAIN_PID=$!
 
-show_progress
+# Progress window with last-line display
+(
+while kill -0 $MAIN_PID 2>/dev/null; do
+  LAST_LINE=$(tail -n 1 "$LOG_FILE" 2>/dev/null | sed 's/^\[[0-9: -]*\] //' | cut -c1-80)
+  [ -n "$LAST_LINE" ] && echo "# $LAST_LINE"
+  sleep 1
+done
+echo "100"
+) | zenity --progress \
+    --title="Ollama Setup — Installing..." \
+    --text="Starting installation..." \
+    --pulsate --auto-close \
+    --cancel-label="Abort" \
+    --width=600 2>/dev/null
+
+# Check if zenity was cancelled
+if [ $? -ne 0 ] && kill -0 $MAIN_PID 2>/dev/null; then
+  kill $MAIN_PID 2>/dev/null
+  # Kill any child processes too
+  pkill -P $MAIN_PID 2>/dev/null
+  echo "ABORTED" > "$STATUS_FILE"
+fi
 
 wait $MAIN_PID 2>/dev/null
 
 STATUS=$(cat "$STATUS_FILE" 2>/dev/null)
 rm -f "$STATUS_FILE"
 
+# ============================================================
+# STEP 4 — Handle result
+# ============================================================
 case "$STATUS" in
   SUCCESS)
-    zenity --info --title="Ollama Setup" --text="$MSG_SUCCESS" --width=450 2>/dev/null
+    zenity --info --title="Ollama Setup" \
+      --text="✅ Ollama + Open WebUI installed successfully!\n\nDesktop shortcut 'OllamaUI' created.\nLaunch it from your desktop when ready." \
+      --width=450 2>/dev/null
+    ;;
+  REBOOT)
+    # Setup resume on next boot
+    log "Setting up post-reboot resume..."
+    touch "$RESUME_MARKER"
+    mkdir -p "$HOME/.config/autostart"
+    cat > "$AUTOSTART_FILE" << AUTOEOF
+[Desktop Entry]
+Type=Application
+Name=Ollama Install Resume
+Exec=bash -c "$SCRIPT_DIR/install_ollama.sh --resume"
+X-GNOME-Autostart-enabled=true
+AUTOEOF
+    chmod +x "$AUTOSTART_FILE"
+    
+    zenity --info --title="Reboot required" \
+      --text="⚠️ ROCm installed. A reboot is required.\n\nAfter the reboot, the installation will automatically continue.\n\nClick OK to reboot now." \
+      --width=450 2>/dev/null
+    sudo reboot
     ;;
   ABORTED)
     zenity --warning --title="Installation aborted" \
-      --text="⚠️ Installation was aborted.\nYou can run the installer again anytime." \
+      --text="⚠️ Installation was aborted.\nRun the installer again anytime." \
       --width=400 2>/dev/null
     ;;
   *)
-    zenity --error --title="Ollama Setup" --text="$MSG_FAIL" \
+    zenity --error --title="Ollama Setup" \
+      --text="❌ Installation failed.\n\nSee log: $LOG_FILE" \
       --extra-button="View log" --width=450 2>/dev/null
     [ $? -eq 1 ] && zenity --text-info --title="Log" --filename="$LOG_FILE" --width=800 --height=500 2>/dev/null
     ;;
