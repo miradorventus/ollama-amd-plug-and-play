@@ -4,7 +4,7 @@
 #  Version: 1.2.0
 # ============================================================
 
-VERSION="1.1.2"
+VERSION="1.1.3"
 REPO_URL="https://github.com/miradorventus/ollama-amd-plug-and-play"
 RAW_URL="https://raw.githubusercontent.com/miradorventus/ollama-amd-plug-and-play/main"
 
@@ -26,7 +26,7 @@ error_popup() {
   zenity --error --title="OllamaUI — Error" --text="$1" \
     --extra-button="View log" --width=400 2>/dev/null
   [ $? -eq 1 ] && zenity --text-info --title="Logs" \
-    --filename=/home/ia/ollamaui.log --width=700 --height=400 2>/dev/null
+    --filename=$HOME/ollamaui.log --width=700 --height=400 2>/dev/null
 }
 
 # ============================================================
@@ -130,7 +130,7 @@ fi
 # ============================================================
 # STEP 5 — Open browser
 # ============================================================
-BROWSER=$(/home/ia/detect_browser.sh | cut -d'|' -f1)
+BROWSER=$($HOME/detect_browser.sh | cut -d'|' -f1)
 
 case "$BROWSER" in
   firefox)
@@ -161,4 +161,4 @@ esac
 # ============================================================
 # STEP 6 — Cleanup on exit
 # ============================================================
-/home/ia/stopia.sh
+$HOME/stopia.sh
