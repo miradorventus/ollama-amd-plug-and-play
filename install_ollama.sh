@@ -2,10 +2,10 @@
 # ============================================================
 #  install_ollama.sh
 #  Ollama (native) + Open WebUI (Docker) — AMD ROCm
-#  Version: 1.3.0
+#  Version: 1.3.1
 # ============================================================
 
-VERSION="1.3.0"
+VERSION="1.3.1"
 LOG_FILE="$HOME/install_ollama.log"
 STATUS_FILE=$(mktemp)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,14 +20,12 @@ fi
 # POST-REBOOT RESUME
 # ============================================================
 if [ "$1" = "--resume" ] || [ -f "$RESUME_MARKER" ]; then
+  # Clean up autostart artifacts only. No decorative popup —
+  # any zenity window opening here would steal focus from the
+  # password prompt that comes next. The script is idempotent:
+  # check_requirements will see ROCm installed and skip it.
   rm -f "$AUTOSTART_FILE"
   rm -f "$RESUME_MARKER"
-  # Decorative info popup — 3s auto-close, non-blocking (&).
-  # No SKIP_ROCM flag: the script is idempotent, check_requirements
-  # will see ROCm installed and skip it naturally.
-  zenity --info --title="Ollama Setup — Resuming" \
-    --text="✅ Reboot complete!\nContinuing installation..." \
-    --width=400 --timeout=3 2>/dev/null &
 fi
 
 # ============================================================
