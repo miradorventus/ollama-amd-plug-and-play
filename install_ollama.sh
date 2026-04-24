@@ -2,10 +2,10 @@
 # ============================================================
 #  install_ollama.sh
 #  Ollama (native) + Open WebUI (Docker) — AMD ROCm
-#  Version: 1.2.2
+#  Version: 1.2.3
 # ============================================================
 
-VERSION="1.2.2"
+VERSION="1.2.3"
 LOG_FILE="$HOME/install_ollama.log"
 STATUS_FILE=$(mktemp)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -222,8 +222,12 @@ MAIN_PID=$!
 # Progress window with last-line display
 (
 while kill -0 $MAIN_PID 2>/dev/null; do
-  LAST_LINE=$(tail -n 1 "$LOG_FILE" 2>/dev/null | sed 's/^\[[0-9: -]*\] //' | cut -c1-80)
-  [ -n "$LAST_LINE" ] && echo "# $LAST_LINE"
+  # Last 7 lines, stripped of timestamps, max 90 chars
+  LAST_LINES=$(tail -n 7 "$LOG_FILE" 2>/dev/null | sed 's/^\[[0-9: -]*\] //' | cut -c1-90)
+  if [ -n "$LAST_LINES" ]; then
+    ESCAPED=$(echo "$LAST_LINES" | sed ':a;N;$!ba;s/\n/\\n/g')
+    echo "# $ESCAPED"
+  fi
   sleep 1
 done
 echo "100"
@@ -232,7 +236,7 @@ echo "100"
     --text="Starting installation..." \
     --pulsate --auto-close \
     --cancel-label="Abort" \
-    --width=600 2>/dev/null
+    --width=700 --height=280 2>/dev/null
 
 # Check if zenity was cancelled
 if [ $? -ne 0 ] && kill -0 $MAIN_PID 2>/dev/null; then
