@@ -2,10 +2,10 @@
 # ============================================================
 #  install_ollama.sh
 #  Ollama (native) + Open WebUI (Docker) — AMD ROCm
-#  Version: 1.2.1
+#  Version: 1.2.2
 # ============================================================
 
-VERSION="1.2.1"
+VERSION="1.2.2"
 LOG_FILE="$HOME/install_ollama.log"
 STATUS_FILE=$(mktemp)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -119,11 +119,14 @@ install_deps() {
 
 install_ollama_native() {
   log "=== Installing Ollama (native) ==="
-  curl -fsSL https://ollama.com/install.sh | sh >> "$LOG_FILE" 2>&1 || {
-    log "ERROR: Ollama install failed"
+  curl -fsSL https://ollama.com/install.sh | sh >> "$LOG_FILE" 2>&1
+  # Official script may return non-zero even on success (e.g. 'ollama' group already exists).
+  # Check the actual binary instead of the exit code.
+  if ! command -v ollama &>/dev/null; then
+    log "ERROR: Ollama install failed (binary not found)"
     echo "ERROR" > "$STATUS_FILE"
     return 1
-  }
+  fi
 
   log "Configuring Ollama for AMD GPU..."
   sudo mkdir -p /etc/systemd/system/ollama.service.d
@@ -249,9 +252,15 @@ rm -f "$STATUS_FILE"
 # ============================================================
 case "$STATUS" in
   SUCCESS)
-    zenity --info --title="Ollama Setup" \
-      --text="✅ Ollama + Open WebUI installed successfully!\n\nDesktop shortcut 'OllamaUI' created.\nLaunch it from your desktop when ready." \
+    zenity --question --title="Ollama Setup" \
+      --text="✅ Ollama + Open WebUI installed successfully!\n\nDesktop shortcut 'OllamaUI' created.\n\nLaunch it now?" \
+      --ok-label="Launch now" --cancel-label="Later" \
       --width=450 2>/dev/null
+    if [ $? -eq 0 ]; then
+      log "Launching OllamaUI from installer..."
+      nohup "$HOME/ollamaui.sh" >/dev/null 2>&1 &
+      disown
+    fi
     ;;
   REBOOT)
     # Setup resume on next boot
