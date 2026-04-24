@@ -2,10 +2,10 @@
 # ============================================================
 #  install_ollama.sh
 #  Ollama (native) + Open WebUI (Docker) — AMD ROCm
-#  Version: 1.3.1
+#  Version: 1.4.0
 # ============================================================
 
-VERSION="1.3.1"
+VERSION="1.4.0"
 LOG_FILE="$HOME/install_ollama.log"
 STATUS_FILE=$(mktemp)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,45 +29,45 @@ if [ "$1" = "--resume" ] || [ -f "$RESUME_MARKER" ]; then
 fi
 
 # ============================================================
-# Auth — always prompt on resume (fresh session = no sudo cache)
+# Auth — askpass pattern (works with or without TTY)
 # ============================================================
-ask_password() {
-  # Prompt until user gives a working password or cancels
-  local attempts=0
-  while [ $attempts -lt 3 ]; do
-    PASSWORD=$(zenity --password \
-      --title="Authentication required" \
-      --text="Enter your password to install Ollama + Open WebUI:" \
-      --width=400 2>/dev/null)
-    [ $? -ne 0 ] && exit 0
-    if [ -z "$PASSWORD" ]; then
-      zenity --error --title="Error" --text="❌ Password cannot be empty." --width=300 2>/dev/null
-      attempts=$((attempts+1))
-      continue
-    fi
-    # Actually verify the password works
-    if echo "$PASSWORD" | sudo -S -v 2>/dev/null; then
-      # Keep sudo alive in background for the whole install duration
-      ( while true; do sudo -n true 2>/dev/null; sleep 50; done ) &
-      SUDO_KEEPER_PID=$!
-      export SUDO_KEEPER_PID
-      return 0
-    fi
-    zenity --error --title="Error" --text="❌ Wrong password. Try again." --width=300 2>/dev/null
-    attempts=$((attempts+1))
-  done
-  zenity --error --title="Error" --text="❌ Too many failed attempts." --width=300 2>/dev/null
+# Install a zenity-based askpass helper. When any 'sudo' runs without
+# a valid cache (first sudo of the session), sudo spawns this helper
+# to ask for the password. Child processes of our script (including
+# the sudos inside the official Ollama installer) inherit the cache
+# — a single zenity prompt covers the entire install.
+ASKPASS_HELPER=$(mktemp --suffix=-ollama-askpass.sh)
+cat > "$ASKPASS_HELPER" << 'ASKPASS_EOF'
+#!/bin/bash
+zenity --password \
+  --title="Ollama Setup — Authentication required" \
+  --text="Enter your password to install Ollama + Open WebUI:" \
+  --width=420 2>/dev/null
+ASKPASS_EOF
+chmod +x "$ASKPASS_HELPER"
+export SUDO_ASKPASS="$ASKPASS_HELPER"
+
+# Prime the sudo cache once. If the user cancels the popup, sudo
+# returns non-zero and we bail out cleanly.
+if ! sudo -A -v 2>/dev/null; then
+  zenity --error --title="Authentication cancelled" \
+    --text="❌ Installation cancelled (no password provided)." --width=400 2>/dev/null
+  rm -f "$ASKPASS_HELPER"
   exit 1
-}
+fi
 
-# Always ask: resume = fresh session, and otherwise we can't be sure cache lasts
-ask_password
+# Keep sudo cache alive in the background throughout the install.
+# Without this, a long step (ROCm download ~2GB) could see the 15min
+# cache expire, and a fresh askpass popup would pop up mid-install.
+( while true; do sudo -n true 2>/dev/null; sleep 50; done ) &
+SUDO_KEEPER_PID=$!
 
-# Clean up the sudo keeper on exit
-cleanup_sudo_keeper() {
+# Cleanup on exit — kill keeper, remove askpass helper
+cleanup_auth() {
   [ -n "$SUDO_KEEPER_PID" ] && kill "$SUDO_KEEPER_PID" 2>/dev/null
+  rm -f "$ASKPASS_HELPER"
 }
-trap cleanup_sudo_keeper EXIT
+trap cleanup_auth EXIT
 
 MSG_WELCOME="Welcome to the Ollama + Open WebUI installer\n\nThis will install:\n• Ollama (native, via official script)\n• Open WebUI (Docker container)\n\nPOLICY: On-demand only\n• Services start when you launch OllamaUI\n• Services stop when you close the browser\n• Nothing runs at boot — saves power!\n\nRequirements:\n• Ubuntu 24.04\n• AMD GPU with ROCm support\n• Docker (will be installed if missing)\n• ~20 GB free disk space\n\nLog: $LOG_FILE"
 
