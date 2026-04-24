@@ -2,10 +2,10 @@
 # ============================================================
 #  install_ollama.sh
 #  Ollama (native) + Open WebUI (Docker) — AMD ROCm
-#  Version: 1.2.3
+#  Version: 1.2.4
 # ============================================================
 
-VERSION="1.2.3"
+VERSION="1.2.4"
 LOG_FILE="$HOME/install_ollama.log"
 STATUS_FILE=$(mktemp)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,19 +29,45 @@ if [ "$1" = "--resume" ] || [ -f "$RESUME_MARKER" ]; then
 fi
 
 # ============================================================
-# Auth
+# Auth — always prompt on resume (fresh session = no sudo cache)
 # ============================================================
-if ! sudo -n true 2>/dev/null; then
-  PASSWORD=$(zenity --password \
-    --title="Authentication required" \
-    --text="Enter your password to install Ollama + Open WebUI:" \
-    --width=400 2>/dev/null)
-  [ $? -ne 0 ] && exit 0
-  echo "$PASSWORD" | sudo -S -v 2>/dev/null || {
-    zenity --error --title="Error" --text="❌ Wrong password." --width=300 2>/dev/null
-    exit 1
-  }
-fi
+ask_password() {
+  # Prompt until user gives a working password or cancels
+  local attempts=0
+  while [ $attempts -lt 3 ]; do
+    PASSWORD=$(zenity --password \
+      --title="Authentication required" \
+      --text="Enter your password to install Ollama + Open WebUI:" \
+      --width=400 2>/dev/null)
+    [ $? -ne 0 ] && exit 0
+    if [ -z "$PASSWORD" ]; then
+      zenity --error --title="Error" --text="❌ Password cannot be empty." --width=300 2>/dev/null
+      attempts=$((attempts+1))
+      continue
+    fi
+    # Actually verify the password works
+    if echo "$PASSWORD" | sudo -S -v 2>/dev/null; then
+      # Keep sudo alive in background for the whole install duration
+      ( while true; do sudo -n true 2>/dev/null; sleep 50; done ) &
+      SUDO_KEEPER_PID=$!
+      export SUDO_KEEPER_PID
+      return 0
+    fi
+    zenity --error --title="Error" --text="❌ Wrong password. Try again." --width=300 2>/dev/null
+    attempts=$((attempts+1))
+  done
+  zenity --error --title="Error" --text="❌ Too many failed attempts." --width=300 2>/dev/null
+  exit 1
+}
+
+# Always ask: resume = fresh session, and otherwise we can't be sure cache lasts
+ask_password
+
+# Clean up the sudo keeper on exit
+cleanup_sudo_keeper() {
+  [ -n "$SUDO_KEEPER_PID" ] && kill "$SUDO_KEEPER_PID" 2>/dev/null
+}
+trap cleanup_sudo_keeper EXIT
 
 MSG_WELCOME="Welcome to the Ollama + Open WebUI installer\n\nThis will install:\n• Ollama (native, via official script)\n• Open WebUI (Docker container)\n\nPOLICY: On-demand only\n• Services start when you launch OllamaUI\n• Services stop when you close the browser\n• Nothing runs at boot — saves power!\n\nRequirements:\n• Ubuntu 24.04\n• AMD GPU with ROCm support\n• Docker (will be installed if missing)\n• ~20 GB free disk space\n\nLog: $LOG_FILE"
 
@@ -280,9 +306,16 @@ X-GNOME-Autostart-enabled=true
 AUTOEOF
     chmod +x "$AUTOSTART_FILE"
     
-    zenity --info --title="Reboot required" \
-      --text="⚠️ ROCm installed. A reboot is required.\n\nAfter the reboot, the installation will automatically continue.\n\nClick OK to reboot now." \
-      --width=450 2>/dev/null
+    zenity --question --title="Reboot required" \
+      --text="⚠️ ROCm was installed — a REBOOT IS REQUIRED to activate it.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n💾  SAVE YOUR WORK FIRST\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nClose any open documents before continuing.\n\nAfter the reboot (≈ 1–2 min), the installation will resume\nautomatically. You'll see a '✅ Reboot complete!' popup.\n\nReady to reboot now?" \
+      --ok-label="Reboot now" --cancel-label="Cancel" \
+      --width=500 2>/dev/null
+    if [ $? -ne 0 ]; then
+      zenity --warning --title="Reboot postponed" \
+        --text="⚠️ Installation paused.\n\nTo resume later, reboot manually\nand re-run: ./install_ollama.sh" \
+        --width=400 2>/dev/null
+      exit 0
+    fi
     sudo reboot
     ;;
   ABORTED)
