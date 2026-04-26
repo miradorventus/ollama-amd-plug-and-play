@@ -4,19 +4,30 @@
 #  Version: 1.5.0
 # ============================================================
 
-VERSION="1.5.0"
+VERSION="1.5.1"
 REPO_URL="https://github.com/miradorventus/ollama-amd-plug-and-play"
 RAW_URL="https://raw.githubusercontent.com/miradorventus/ollama-amd-plug-and-play/main"
 LOCKFILE="/tmp/ollamaui.lock"
 URL="http://127.0.0.1:3000"
+OLLAMAUI_DIR="$HOME/.ollamaui"
+
+# Ensure install dir exists
+mkdir -p "$OLLAMAUI_DIR"
+
+# v1.5.0 -> v1.5.1 silent migration: move legacy files from ~/ to ~/.ollamaui/
+for old_file in ollamaui.sh stopia.sh detect_browser.sh install_ollama.log ollamaui.log; do
+  if [ -f "$HOME/$old_file" ] && [ ! -f "$OLLAMAUI_DIR/$old_file" ]; then
+    mv "$HOME/$old_file" "$OLLAMAUI_DIR/$old_file" 2>/dev/null
+  fi
+done
 
 # ─── Manual update via CLI ──────────────────────────────────
 if [ "$1" = "--update" ]; then
   echo "🔄 Updating Ollama Plug & Play..."
   REPO_DIR="$HOME/ollama-amd-plug-and-play"
   if [ -d "$REPO_DIR/.git" ]; then
-    cd "$REPO_DIR" && git pull && cp ollamaui.sh stopia.sh detect_browser.sh "$HOME/" 2>/dev/null
-    chmod +x "$HOME/ollamaui.sh" "$HOME/stopia.sh" "$HOME/detect_browser.sh"
+    cd "$REPO_DIR" && git pull && cp ollamaui.sh stopia.sh detect_browser.sh "$OLLAMAUI_DIR/" 2>/dev/null
+    chmod +x "$OLLAMAUI_DIR/ollamaui.sh" "$OLLAMAUI_DIR/stopia.sh" "$OLLAMAUI_DIR/detect_browser.sh"
     echo "✅ Updated"
   else
     echo "⚠️ Repo not found at $REPO_DIR"
@@ -28,7 +39,7 @@ error_popup() {
   zenity --error --title="OllamaUI — Error" --text="$1" \
     --extra-button="View log" --width=400 2>/dev/null
   [ $? -eq 1 ] && zenity --text-info --title="Logs" \
-    --filename=$HOME/ollamaui.log --width=700 --height=400 2>/dev/null
+    --filename=$OLLAMAUI_DIR/ollamaui.log --width=700 --height=400 2>/dev/null
 }
 
 # ============================================================
@@ -100,8 +111,8 @@ if [ -n "$LATEST" ] && [ "$LATEST" != "$VERSION" ]; then
         echo "20"; echo "# Pulling updates..."
         cd "$REPO_DIR" && git pull > /dev/null 2>&1
         echo "60"; echo "# Copying scripts..."
-        cp ollamaui.sh stopia.sh detect_browser.sh "$HOME/" 2>/dev/null
-        chmod +x "$HOME/ollamaui.sh" "$HOME/stopia.sh" "$HOME/detect_browser.sh"
+        cp ollamaui.sh stopia.sh detect_browser.sh "$OLLAMAUI_DIR/" 2>/dev/null
+        chmod +x "$OLLAMAUI_DIR/ollamaui.sh" "$OLLAMAUI_DIR/stopia.sh" "$OLLAMAUI_DIR/detect_browser.sh"
         echo "100"
       ) | zenity --progress --title="OllamaUI — Updating" \
           --text="Updating to $LATEST..." \
@@ -110,7 +121,7 @@ if [ -n "$LATEST" ] && [ "$LATEST" != "$VERSION" ]; then
       zenity --info --title="✅ Updated" \
         --text="Updated to version $LATEST!\nRelaunching..." \
         --width=400 --timeout=2 2>/dev/null
-      exec "$HOME/ollamaui.sh"
+      exec "$OLLAMAUI_DIR/ollamaui.sh"
     else
       zenity --warning --title="Manual update needed" \
         --text="Please update manually:\ncd ~/ollama-amd-plug-and-play && git pull" \
@@ -123,7 +134,7 @@ fi
 # STEP 4 — CREATE LOCKFILE + CLEANUP TRAP
 # ============================================================
 echo $$ > "$LOCKFILE"
-trap 'rm -f "$LOCKFILE"; "$HOME/stopia.sh" 2>/dev/null' EXIT
+trap 'rm -f "$LOCKFILE"; "$OLLAMAUI_DIR/stopia.sh" 2>/dev/null' EXIT
 
 # ============================================================
 # STEP 5 — START SERVICES (sudo via pkexec)
@@ -185,7 +196,7 @@ fi
 # ============================================================
 # STEP 8 — OPEN BROWSER (unified, no "Click STOP" popup)
 # ============================================================
-BROWSER=$($HOME/detect_browser.sh | cut -d'|' -f1)
+BROWSER=$($OLLAMAUI_DIR/detect_browser.sh | cut -d'|' -f1)
 
 case "$BROWSER" in
   firefox)

@@ -2,7 +2,7 @@
 # ============================================================
 #  install_ollama.sh
 #  Ollama (native) + Open WebUI (Docker) — AMD ROCm
-#  Version: 1.5.0
+#  Version: 1.5.1
 # ============================================================
 #  Sources used (all official):
 #    • Ollama:    https://ollama.com/install.sh
@@ -11,11 +11,22 @@
 #    • Docker:    Ubuntu/Mint apt repos
 # ============================================================
 
-VERSION="1.5.0"
-LOG_FILE="$HOME/install_ollama.log"
+VERSION="1.5.1"
+OLLAMAUI_DIR="$HOME/.ollamaui"
+LOG_FILE="$OLLAMAUI_DIR/install_ollama.log"
 STATUS_FILE=$(mktemp)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTOSTART_FILE="$HOME/.config/autostart/ollama-install-resume.desktop"
+
+# Ensure install dir exists (one-time, silent)
+mkdir -p "$OLLAMAUI_DIR"
+
+# v1.5.0 -> v1.5.1 silent migration: move scripts from ~/ to ~/.ollamaui/
+for old_file in ollamaui.sh stopia.sh detect_browser.sh install_ollama.log ollamaui.log; do
+  if [ -f "$HOME/$old_file" ] && [ ! -f "$OLLAMAUI_DIR/$old_file" ]; then
+    mv "$HOME/$old_file" "$OLLAMAUI_DIR/$old_file" 2>/dev/null
+  fi
+done
 
 # Track what's been done — used by rollback() if user aborts
 TRACK_FILE=$(mktemp --suffix=-ollama-track)
@@ -62,6 +73,8 @@ rollback() {
     log "  Removed desktop shortcut"
   }
   was_done "scripts" && {
+    rm -f "$OLLAMAUI_DIR/ollamaui.sh" "$OLLAMAUI_DIR/stopia.sh" "$OLLAMAUI_DIR/detect_browser.sh"
+    # Also clean up legacy locations from older versions
     rm -f "$HOME/ollamaui.sh" "$HOME/stopia.sh" "$HOME/detect_browser.sh"
     log "  Removed launch scripts"
   }
@@ -567,10 +580,10 @@ fi
 
 # Install scripts + desktop shortcut
 log "Installing launch scripts..."
-cp "$SCRIPT_DIR/ollamaui.sh" "$HOME/" 2>/dev/null
-cp "$SCRIPT_DIR/stopia.sh" "$HOME/" 2>/dev/null
-cp "$SCRIPT_DIR/detect_browser.sh" "$HOME/" 2>/dev/null
-chmod +x "$HOME/ollamaui.sh" "$HOME/stopia.sh" "$HOME/detect_browser.sh" 2>/dev/null
+cp "$SCRIPT_DIR/ollamaui.sh" "$OLLAMAUI_DIR/" 2>/dev/null
+cp "$SCRIPT_DIR/stopia.sh" "$OLLAMAUI_DIR/" 2>/dev/null
+cp "$SCRIPT_DIR/detect_browser.sh" "$OLLAMAUI_DIR/" 2>/dev/null
+chmod +x "$OLLAMAUI_DIR/ollamaui.sh" "$OLLAMAUI_DIR/stopia.sh" "$OLLAMAUI_DIR/detect_browser.sh" 2>/dev/null
 track "scripts"
 
 DESKTOP="$HOME/Desktop"
@@ -600,7 +613,7 @@ Version=1.0
 Type=Application
 Name=OllamaUI
 Comment=Launch Ollama + Open WebUI (on-demand)
-Exec=$HOME/ollamaui.sh
+Exec=$OLLAMAUI_DIR/ollamaui.sh
 Icon=$ICON_PATH
 Terminal=false
 Categories=Application;
@@ -630,7 +643,7 @@ if [ $? -eq 0 ]; then
   if [ "$WEBUI_MODE" = "external" ]; then
     nohup xdg-open "$WEBUI_EXTERNAL_URL" >/dev/null 2>&1 &
   else
-    nohup "$HOME/ollamaui.sh" >/dev/null 2>&1 &
+    nohup "$OLLAMAUI_DIR/ollamaui.sh" >/dev/null 2>&1 &
   fi
   disown
 fi
