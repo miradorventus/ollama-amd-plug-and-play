@@ -9,16 +9,18 @@ Yeah, same. That's why this exists.
 
 ---
 
-## 🎉 What's new — v1.5.0
+## 🎉 What's new — v2.0.0
 
-- 🐧 **Linux Mint support** — XFCE & Cinnamon tested, Ubuntu compat preserved
-- 🎨 **Brand new install UX** — adaptive welcome popup that detects your existing setup
-- 📦 **Power user mode** — already have Ollama or WebUI elsewhere? Just import them
-- 🛡️ **Smart rollback** — change your mind mid-install? Click "Stop install" and the script cleans up everything
-- 🔧 **Self-repair** — broken something? Re-launch the icon, the script detects what's missing and proposes a fix
-- 🔥 **UFW auto-config** — no more "Connection error" on Mint (Docker subnet → port 11434)
-- ✅ **Verified ROCm install** — fails fast and clear if AMD repos can't be reached
-- 💡 **Source transparency** — every popup tells you exactly what's installed, from where, and why
+- 🔥 **ROCm 7.2.2** — latest production stable, AMD official repos, RDNA4 ready
+- 📁 **Custom install location** — pick where things live, with a clickable symlink to your models for easy file-manager access
+- 🪟 **WebApp pattern** — OllamaUI now opens in its own dedicated window (like Mint's WebApp Manager apps), zero pollution of your personal Firefox profile
+- 🎮 **Auto GPU split** — APU + dGPU setups (most modern Ryzens) are auto-configured to dedicate the dGPU to AI, freeing the iGPU for your desktop. **No more session crash on heavy models.**
+- 🗂️ **Manage your models from the file manager** — drag-and-drop `.gguf` files, delete models, browse — all without sudo gymnastics
+- 🚀 **Launcher renamed** — `ollamaui.sh` → `ollamaui-launcher.sh` for clarity
+- ⚙️ **Self-detecting launcher** — works with default OR custom install paths automatically
+- 🔧 **Hardened install** — verifies source files exist before copying, no silent failures
+
+> ⚠️ **Breaking change from v1.x:** the launcher script was renamed. Existing users running v1.x will be silently migrated on next launch — no manual action needed.
 
 ---
 
@@ -27,6 +29,7 @@ Yeah, same. That's why this exists.
 - 🖥️ **Desktop shortcut** — double-click. That's the whole workflow.
 - 🤖 **Ollama** — native install (not Docker!) with full AMD ROCm acceleration
 - 🌐 **Open WebUI** — the ChatGPT-style interface, running 100% on your machine
+- 🪟 **Dedicated app window** — separate from your personal Firefox, won't mess with your tabs
 - 🔒 **Fully offline** — your data doesn't leave your GPU
 - ⚡ **On-demand** — services start when you click, stop when you close the browser
 - 💾 **VRAM friendly** — models auto-unload after 5 minutes of silence
@@ -45,6 +48,8 @@ Yeah, same. That's why this exists.
 | **Internet** | For initial setup only (then offline forever) |
 
 > ⚠️ **RDNA4 gang (RX 9070 / 9070 XT):** `HSA_OVERRIDE_GFX_VERSION=12.0.1` is already wired up. You're welcome.
+
+> 💡 **APU + dGPU users (most Ryzen 7000+/8000+/9000+):** the launcher detects your dual-GPU setup automatically and tells Ollama to use only the dedicated GPU. **Goodbye, mid-generation session crashes.**
 
 ---
 
@@ -70,10 +75,16 @@ Adaptive popup that scans your system and tells you exactly:
 
 You can cancel here. No hard feelings.
 
+### Step 0.5 — Install location *(new in v2.0.0)*
+Pick where to install:
+- ✅ **Default** — `~/.ollamaui/` (hidden, standard Linux convention)
+- 📁 **Custom location** — pick your parent folder (e.g., `~/AI-Tools/`), the installer creates `<your-folder>/ollamaui/` for scripts and `<your-folder>/ollama-models` as a clickable shortcut to your model storage
+- ← **Back** — change your mind, go back to welcome
+
 ### Step 1 — Dependencies *(if needed)*
 Installs missing pieces from **official repos only**:
 - 🟦 **Docker** — Ubuntu/Mint apt
-- 🔴 **ROCm 6.3** — `repo.radeon.com` (AMD official)
+- 🔴 **ROCm 7.2.2** — `repo.radeon.com` (AMD official)
 - ⚙️ **curl** — Ubuntu/Mint apt
 
 If ROCm is fresh, the script will offer a reboot before continuing (auto-resumes after reboot).
@@ -106,6 +117,21 @@ Three choices again:
 **Already running?** Click the desktop icon again — it gracefully tells you to look at your existing window.
 
 That's it. Really.
+
+---
+
+## 📁 Manage Your Models from the File Manager
+
+If you chose a custom install location, you have a clickable `ollama-models` shortcut next to your `ollamaui/` folder. Open it in Thunar / Nautilus / Caja, and you can:
+
+- 📥 **Drag-and-drop** custom `.gguf` files into the right folder
+- 🗑️ **Delete models** without sudo gymnastics
+- 📂 **Browse** what's actually on disk
+- ✏️ **Rename / organize** as you wish
+
+The shortcut is a symlink to the real storage at `/usr/share/ollama/.ollama/models`. The installer set up the right permissions so your user can write there safely.
+
+> 🛡️ **Doesn't break anything.** Ollama keeps writing to its standard location. The shortcut is just a window into it.
 
 ---
 
@@ -148,7 +174,7 @@ cd ollama-amd-plug-and-play
 - ✅ Removes Open WebUI Docker container and image
 - ✅ Removes launch scripts and desktop shortcut
 - ✅ Removes our UFW firewall rule
-- 💾 **Keeps your models** in `~/.ollama` (delete manually if you want the space back)
+- 💾 **Keeps your models** in `/usr/share/ollama/.ollama` (delete manually if you want the space back)
 - 💾 **Keeps your conversations** in the Docker volume `open-webui` (delete with `docker volume rm open-webui` if needed)
 
 ---
@@ -174,10 +200,10 @@ ollama pull gemma3:12b
 ollama pull gemma4:26b
 
 # Code wizard mode
-ollama pull qwen2.5:7b
+ollama pull qwen2.5-coder:14b
 
 # Surprisingly good for European languages
-ollama pull mistral:7b
+ollama pull mistral-nemo:latest
 ```
 
 **List models:**
@@ -210,7 +236,7 @@ ollama rm MODEL_NAME
 ```bash
 watch -n 1 ollama ps
 # 100% GPU in the PROCESSOR column = you're good
-# 100% CPU = something's wrong, check ~/install_ollama.log
+# Mostly CPU = model too big for VRAM, or check ~/.ollamaui/install_ollama.log
 ```
 
 **Restart when things feel weird:**
@@ -221,8 +247,11 @@ docker restart open-webui
 
 **View logs:**
 ```bash
-# Install log
-cat ~/install_ollama.log
+# Install log (default location)
+cat ~/.ollamaui/install_ollama.log
+
+# Or your custom location
+cat ~/AI-Tools/ollamaui/install_ollama.log
 
 # Ollama service
 journalctl -u ollama -n 50
@@ -237,7 +266,11 @@ sudo journalctl -u ollama -n 100 | grep -iE "rocm|vram|gfx"
 # You should see ROCm mentioned, with VRAM size and your GPU's gfx target
 ```
 
-See **MEMO.txt** for the full command reference.
+**Multi-GPU? Check which GPU Ollama uses:**
+```bash
+sudo cat /etc/systemd/system/ollama.service.d/override.conf | grep HIP
+# HIP_VISIBLE_DEVICES=0 means it uses your first dedicated GPU (correct for APU+dGPU setups)
+```
 
 ---
 
@@ -247,7 +280,7 @@ See **MEMO.txt** for the full command reference.
 |---|---|
 | Ollama | https://ollama.com/install.sh |
 | Open WebUI | `ghcr.io/open-webui/open-webui` (GitHub) |
-| ROCm 6.3 | https://repo.radeon.com (AMD official) |
+| ROCm 7.2.2 | https://repo.radeon.com (AMD official) |
 | Docker | Ubuntu/Mint apt repos |
 
 No PPA. No fork. No mirror. Just trust + officialness.
