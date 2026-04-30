@@ -11,7 +11,7 @@
 #    • Docker:    Ubuntu/Mint apt repos
 # ============================================================
 
-VERSION="2.0.0"
+VERSION="2.0.1"
 REPO_URL="https://github.com/miradorventus/ollama-amd-plug-and-play"
 DEFAULT_OLLAMAUI_DIR="$HOME/.ollamaui"
 OLLAMAUI_DIR="$DEFAULT_OLLAMAUI_DIR"
@@ -671,8 +671,14 @@ DESKTOP="$HOME/Desktop"
 [ ! -d "$DESKTOP" ] && DESKTOP="$HOME/Bureau"
 [ ! -d "$DESKTOP" ] && mkdir -p "$DESKTOP"
 [ -f "$DESKTOP/OllamaUI.desktop" ] && cp "$DESKTOP/OllamaUI.desktop" "$DESKTOP/OllamaUI.desktop.bak"
-ICON_PATH="$SCRIPT_DIR/icon.png"
-[ ! -f "$ICON_PATH" ] && ICON_PATH="utilities-terminal"
+
+# Copy icon to install dir so .desktop survives if user deletes the git repo
+if [ -f "$SCRIPT_DIR/icon.png" ]; then
+  cp "$SCRIPT_DIR/icon.png" "$OLLAMAUI_DIR/icon.png" 2>/dev/null
+  ICON_PATH="$OLLAMAUI_DIR/icon.png"
+else
+  ICON_PATH="utilities-terminal"
+fi
 
 if [ "$WEBUI_MODE" = "external" ]; then
   cat > "$DESKTOP/OllamaUI.desktop" << DESK_EOF
