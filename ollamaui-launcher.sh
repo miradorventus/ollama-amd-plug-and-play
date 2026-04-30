@@ -4,7 +4,7 @@
 #  Version: 1.0.0
 # ============================================================
 
-VERSION="2.0.0"
+VERSION="2.0.1"
 REPO_URL="https://github.com/miradorventus/ollama-amd-plug-and-play"
 RAW_URL="https://raw.githubusercontent.com/miradorventus/ollama-amd-plug-and-play/main"
 LOCKFILE="/tmp/ollamaui.lock"
