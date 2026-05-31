@@ -4,7 +4,7 @@
 #  Version: 1.0.0
 # ============================================================
 
-VERSION="2.0.1"
+VERSION="2.0.2"
 REPO_URL="https://github.com/miradorventus/ollama-amd-plug-and-play"
 RAW_URL="https://raw.githubusercontent.com/miradorventus/ollama-amd-plug-and-play/main"
 LOCKFILE="/tmp/ollamaui.lock"
@@ -198,6 +198,9 @@ if [ $START_STATUS -ne 0 ]; then
   exit 0
 fi
 
+# Start Open WebUI container (idempotent: safe if already running)
+docker start open-webui > /dev/null 2>&1
+
 # ============================================================
 # STEP 6 — LOADING WINDOW (Ollama + WebUI starting)
 # ============================================================
@@ -208,14 +211,7 @@ fi
     sleep 1
   done
 
-  echo "# Starting Open WebUI..."
-  docker stop open-webui >/dev/null 2>&1
-  docker start open-webui > /dev/null 2>&1 || \
-    docker run -d --name open-webui \
-      -p 3000:8080 \
-      --add-host=host.docker.internal:host-gateway \
-      -v open-webui:/app/backend/data \
-      ghcr.io/open-webui/open-webui:main > /dev/null 2>&1
+  echo "# Waiting for Open WebUI container to be ready..."
 
   echo "# Waiting for Open WebUI to be ready..."
   for i in {1..30}; do
