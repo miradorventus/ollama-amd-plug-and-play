@@ -4,7 +4,7 @@
 #  Version: 1.0.0
 # ============================================================
 
-VERSION="2.0.2"
+VERSION="2.0.3"
 REPO_URL="https://github.com/miradorventus/ollama-amd-plug-and-play"
 RAW_URL="https://raw.githubusercontent.com/miradorventus/ollama-amd-plug-and-play/main"
 LOCKFILE="/tmp/ollamaui.lock"
@@ -188,8 +188,21 @@ echo $$ > "$LOCKFILE"
 trap 'rm -f "$LOCKFILE"; "$OLLAMAUI_DIR/stopia.sh" 2>/dev/null' EXIT
 
 # ============================================================
-# STEP 5 — START SERVICES (sudo via pkexec)
+# STEP 5 — START SERVICES
 # ============================================================
+# 5a. Open WebUI D'ABORD (pas de root requis) — idem LlamaUI STEP 3
+if ! docker ps --filter name=open-webui --format '{{.Names}}' | grep -q open-webui; then
+  echo "→ Démarrage container Open WebUI..."
+  docker start open-webui >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    error_popup "❌ Container open-webui ne démarre pas.\nVérifie : docker ps -a"
+    exit 1
+  fi
+else
+  echo "→ Container Open WebUI déjà actif"
+fi
+
+# 5b. Ollama via pkexec (root requis)
 echo "Requesting authentication..."
 pkexec systemctl start ollama
 START_STATUS=$?
@@ -197,9 +210,6 @@ START_STATUS=$?
 if [ $START_STATUS -ne 0 ]; then
   exit 0
 fi
-
-# Start Open WebUI container (idempotent: safe if already running)
-docker start open-webui > /dev/null 2>&1
 
 # ============================================================
 # STEP 6 — LOADING WINDOW (Ollama + WebUI starting)
