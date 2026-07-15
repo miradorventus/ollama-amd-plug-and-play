@@ -1,4 +1,7 @@
 #!/bin/bash
+# shellcheck disable=SC2024
+# SC2024: redirections vers "$LOG_FILE" volontairement executees en tant
+# qu'utilisateur, pas en root — le log doit rester lisible/ecrivable par lui.
 # ============================================================
 #  install_ollama.sh
 #  Ollama (native) + Open WebUI (Docker) — AMD ROCm

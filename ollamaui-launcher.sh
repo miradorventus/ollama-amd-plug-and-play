@@ -85,7 +85,8 @@ auto_configure_gpu() {
   [ "$DGPU_INDEX" -lt 0 ] && return 0
   
   # Add HIP_VISIBLE_DEVICES via pkexec (silent, no popup)
-  local TMP=$(mktemp)
+  local TMP
+  TMP=$(mktemp)
   cat "$OVERRIDE_FILE" > "$TMP"
   echo "Environment=\"HIP_VISIBLE_DEVICES=$DGPU_INDEX\"" >> "$TMP"
   
