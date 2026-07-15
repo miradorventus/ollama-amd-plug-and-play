@@ -519,9 +519,18 @@ if [ "$PRE_CHECK_OLLAMA" = "0" ]; then
     track "ollama_systemd"
     
     log "Setting up NOPASSWD stop..."
-    echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop ollama, /usr/bin/systemctl stop ollama.service" | \
-      sudo tee /etc/sudoers.d/ollama-nopasswd-stop > /dev/null
-    sudo chmod 440 /etc/sudoers.d/ollama-nopasswd-stop
+    if [ -z "$USER" ]; then
+      log "WARNING: USER is empty - skipping sudoers rule"
+    else
+      SUDOERS_TMP="$(mktemp)"
+      echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop ollama, /usr/bin/systemctl stop ollama.service" > "$SUDOERS_TMP"
+      if sudo visudo -cf "$SUDOERS_TMP" >/dev/null 2>&1; then
+        sudo install -m 440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/ollama-nopasswd-stop
+      else
+        log "ERROR: invalid sudoers syntax - rule not installed (sudo untouched)"
+      fi
+      rm -f "$SUDOERS_TMP"
+    fi
     
     sudo systemctl daemon-reload
     
