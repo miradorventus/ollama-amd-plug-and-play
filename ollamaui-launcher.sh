@@ -4,11 +4,12 @@
 #  Version: 1.0.0
 # ============================================================
 
-VERSION="2.0.3"
+VERSION="2.1.0"
 REPO_URL="https://github.com/miradorventus/ollama-amd-plug-and-play"
 RAW_URL="https://raw.githubusercontent.com/miradorventus/ollama-amd-plug-and-play/main"
 LOCKFILE="/tmp/ollamaui.lock"
 URL="http://127.0.0.1:3000"
+OLLAMA_URL="http://172.17.0.1:11434"
 # Self-detect: launcher uses its own folder (works for default ~/.ollamaui/ and custom locations)
 OLLAMAUI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -217,7 +218,7 @@ fi
 (
   echo "# Checking Ollama connection..."
   for i in {1..15}; do
-    curl -s http://127.0.0.1:11434 > /dev/null 2>&1 && break
+    curl -s "$OLLAMA_URL" > /dev/null 2>&1 && break
     sleep 1
   done
 
@@ -239,7 +240,7 @@ fi
 # ============================================================
 # STEP 7 — VERIFY ALL SERVICES UP
 # ============================================================
-if ! curl -s http://127.0.0.1:11434 > /dev/null 2>&1; then
+if ! curl -s "$OLLAMA_URL" > /dev/null 2>&1; then
   error_popup "❌ Ollama is not responding.\nCheck: sudo systemctl status ollama"
   exit 1
 fi

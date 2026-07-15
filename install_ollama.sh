@@ -501,7 +501,7 @@ if [ "$PRE_CHECK_OLLAMA" = "0" ]; then
       ["OLLAMA_LLM_LIBRARY"]="rocm" \
       ["OLLAMA_KEEP_ALIVE"]="5m" \
     )
-    REQUIRED["OLLAMA_HOST"]="0.0.0.0"
+    REQUIRED["OLLAMA_HOST"]="172.17.0.1"
     [ -n "$OLLAMA_MODELS_PATH" ] && REQUIRED["OLLAMA_MODELS"]="$OLLAMA_MODELS_PATH"
     
     for key in "${!REQUIRED[@]}"; do
@@ -596,7 +596,7 @@ if [ "$WEBUI_MODE" = "install" ] && [ "$PRE_CHECK_WEBUI" = "0" ]; then
     docker stop open-webui 2>/dev/null
     docker rm open-webui 2>/dev/null
     docker create --name open-webui \
-      -p 3000:8080 \
+      -p 127.0.0.1:3000:8080 \
       --add-host=host.docker.internal:host-gateway \
       -v open-webui:/app/backend/data \
       ghcr.io/open-webui/open-webui:main >> "$LOG_FILE" 2>&1
